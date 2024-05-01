@@ -1,0 +1,12 @@
+seed: 0
+root_dir: '/home/aditya/Code/interpretable_ml/project'
+dataset: 'CCMT'
+model: 'resnet'
+num_classes: 5
+batch_size: 1
+num_epochs: 1
+dropout: 0.1
+lr: 1e-5
+weight_decay: 1e-4
+display_loss_interval: 0.1
+val_interval: 0.5

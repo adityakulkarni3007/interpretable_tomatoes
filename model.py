@@ -7,7 +7,12 @@ class ResNet(nn.Module):
         super(ResNet, self).__init__()
         self.resnet = torch.hub.load('pytorch/vision:v0.6.0', 'resnet18', pretrained=True)
         in_features = self.resnet.fc.in_features
-        self.resnet.fc = nn.Linear(in_features, num_classes)
+        # self.resnet.fc = nn.Linear(in_features, num_classes)
+        self.resnet.fc = nn.Sequential(
+            nn.ReLU(inplace=True),
+            nn.Dropout(0.2),
+            nn.Linear(in_features, num_classes),
+        )
 
     def forward(self, x):
         return self.resnet(x)
@@ -16,32 +21,6 @@ if __name__ == '__main__':
     model = ResNet(5)
     print(model)
 
-class ImageClassificationBase(nn.Module):
-    
-    def training_step(self, batch):
-        images, labels = batch 
-        out = self(images)                  # Generate predictions
-        loss = F.cross_entropy(out, labels) # Calculate loss
-        return loss
-    
-    def validation_step(self, batch):
-        images, labels = batch 
-        out = self(images)                    # Generate predictions
-        loss = F.cross_entropy(out, labels)   # Calculate loss
-        acc = accuracy(out, labels)           # Calculate accuracy
-        return {'val_loss': loss.detach(), 'val_acc': acc}
-        
-    def validation_epoch_end(self, outputs):
-        batch_losses = [x['val_loss'] for x in outputs]
-        epoch_loss = torch.stack(batch_losses).mean()   # Combine losses
-        batch_accs = [x['val_acc'] for x in outputs]
-        epoch_acc = torch.stack(batch_accs).mean()      # Combine accuracies
-        return {'val_loss': epoch_loss.item(), 'val_acc': epoch_acc.item()}
-    
-    def epoch_end(self, epoch, result):
-        print("Epoch [{}], train_loss: {:.4f}, val_loss: {:.4f}, val_acc: {:.4f}".format(
-            epoch, result['train_loss'], result['val_loss'], result['val_acc']))
-            
 def ConvBlock(in_channels, out_channels, pool=False):
     layers = [nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1),
              nn.BatchNorm2d(out_channels),

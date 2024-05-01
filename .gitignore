@@ -1,3 +1,6 @@
 __pycache__
 archive/*
 plantdataset*
+saliency_maps*
+wandb*
+outputs*

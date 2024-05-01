@@ -20,6 +20,7 @@ class TomatoDataset(Dataset):
         self.img_paths = []
         for i, class_name in enumerate(self.classes):
             class_dir = os.path.join(img_dir, class_name)
+            print(f"Class: {class_name}, Len: {len(os.listdir(class_dir))}")
             for img_name in os.listdir(class_dir):
                 img_path = os.path.join(class_dir, img_name)
                 self.img_paths.append(img_path)

@@ -10,6 +10,10 @@ import torchvision.transforms as transforms
 from torch.autograd import Variable
 import matplotlib.pyplot as plt
 import cv2
+from pytorch_grad_cam import AblationCAM as CAM
+from pytorch_grad_cam.utils.image import show_cam_on_image
+from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget
+from tqdm import tqdm
 
 def overlay_saliency_map(input_image, saliency_map):
     """
@@ -89,5 +93,69 @@ def saliency_map():
     # Print predicted class
     print('Predicted Class: ' + str(loss))
 
+def gradcam():
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    # model = CNN_NeuralNet(3, 5).to(device)
+    model = ResNet(5).to(device)
+    print(model)
+    model.load_state_dict(torch.load('model_bestsweep.pth'))
+    # model.load_state_dict(torch.load('model_resnet_stable.pth'))
+    model.eval().to(device)
+    target_layers = [model.resnet.layer4[-1].conv2]
+    cam = CAM(model=model, target_layers=target_layers)
+    # Define the dataset
+    transform = transforms.Compose([
+        transforms.Resize((224, 224)),
+        transforms.ToTensor()
+    ])
+    torch.manual_seed(0)
+    dataset = TomatoDataset('/home/aditya/Code/interpretable_ml/project/archive/CCMT_FInal Dataset', transform)
+    with open(f'/home/aditya/Code/interpretable_ml/project/stratified_test_indices.txt', 'r') as f:
+        stratified_test_indices = [int(line.rstrip('\n')) for line in f]
+    dataset = torch.utils.data.Subset(dataset, stratified_test_indices)
+    label="Tomato"
+    print(f"Len of dataset: {len(dataset)}")
+    if not os.path.exists('saliency_maps_correct'):
+        os.makedirs('saliency_maps_correct')
+    if not os.path.exists('saliency_maps_incorrect'):
+        os.makedirs('saliency_maps_incorrect')
+    for idx, (img, label) in tqdm(enumerate(dataset), total=len(dataset)):
+        # img,label = dataset[250]
+        og_img = img.clone()
+        label = torch.tensor([dataset.dataset.classes.index(label)]).to(device)
+        img = img.unsqueeze(0).to(device)
+        input_tensor = img
+        input_tensor = input_tensor.to(device)
+        output = torch.softmax(model(input_tensor), dim=1)
+        pred = torch.argmax(output, dim=1)
+        grayscale_cam = cam(input_tensor=input_tensor, targets=[ClassifierOutputTarget(pred)])
+        grayscale_cam = grayscale_cam[0, :]
+        img = img[0].cpu().numpy().transpose(1, 2, 0)
+            ## Visualize input image and saliency map
+        fig = plt.figure(figsize=(16,8))
+        ax1 = fig.add_subplot(121)
+        ax2 = fig.add_subplot(122)
+        # Title
+        ax1.set_title('GT: ' + dataset.dataset.classes[label])
+
+        # Show input image
+        ax1.imshow(transforms.ToPILImage()(og_img))
+        ax1.axis('off')
+
+        # Overlay the saliency map over the input image
+        visualization = show_cam_on_image(img, grayscale_cam)
+        ax2.set_title('Predicted: ' + dataset.dataset.classes[pred])
+        ax2.imshow(visualization, cmap=plt.cm.hot)
+        ax2.axis('off')
+        # Save the image
+        if pred == label:
+            plt.savefig(f'saliency_maps_correct/{idx}.png')
+        else:
+            plt.savefig(f'saliency_maps_incorrect/{idx}.png')
+        # plt.show()
+        # Print predicted class
+        print('Predicted Class: ' + dataset.dataset.classes[pred])
+
 if __name__ == '__main__':
-    saliency_map()
+    # saliency_map()
+    gradcam()
